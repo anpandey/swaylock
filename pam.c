@@ -46,6 +46,7 @@ static int handle_conversation(int num_msg, const struct pam_message **msg,
 			break;
 		case PAM_ERROR_MSG:
 		case PAM_TEXT_INFO:
+			write_comm_message(msg[i]->msg, strnlen(msg[i]->msg, PAM_MAX_MSG_SIZE));
 			break;
 		}
 	}

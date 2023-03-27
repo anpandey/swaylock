@@ -7,7 +7,7 @@
 #include "swaylock.h"
 #include "password-buffer.h"
 
-static int comm[2][2] = {{-1, -1}, {-1, -1}};
+static int comm[3][2] = {{-1, -1}, {-1, -1}, {-1, -1}};
 
 ssize_t read_comm_request(char **buf_ptr) {
 	size_t size;
@@ -55,6 +55,10 @@ bool spawn_comm_child(void) {
 		swaylock_log_errno(LOG_ERROR, "failed to create pipe");
 		return false;
 	}
+	if (pipe(comm[2]) != 0) {
+		swaylock_log_errno(LOG_ERROR, "failed to create pipe");
+		return false;
+	}
 	pid_t child = fork();
 	if (child < 0) {
 		swaylock_log_errno(LOG_ERROR, "failed to fork");
@@ -62,10 +66,12 @@ bool spawn_comm_child(void) {
 	} else if (child == 0) {
 		close(comm[0][1]);
 		close(comm[1][0]);
+		close(comm[2][0]);
 		run_pw_backend_child();
 	}
 	close(comm[0][0]);
 	close(comm[1][1]);
+	close(comm[2][1]);
 	return true;
 }
 
@@ -106,4 +112,51 @@ bool read_comm_reply(void) {
 
 int get_comm_reply_fd(void) {
 	return comm[1][0];
+}
+
+ssize_t read_comm_message(char *buf) {
+	size_t size;
+	ssize_t amt;
+	amt = read(comm[2][0], &size, sizeof(size));
+	if (amt == 0) {
+		return 0;
+	} else if (amt < 0) {
+		swaylock_log_errno(LOG_ERROR, "read message len");
+		return -1;
+	}
+	size_t offs = 0;
+	do {
+		amt = read(comm[2][0], &buf[offs], size - offs);
+		if (amt <= 0) {
+			swaylock_log_errno(LOG_ERROR, "Failed to read message");
+			return -1;
+		}
+		offs += (size_t)amt;
+	} while (offs < size);
+
+	return size;
+}
+
+bool write_comm_message(const char *buf, size_t len) {
+	bool result = false;
+
+	size_t offs = 0;
+	if (write(comm[2][1], &len, sizeof(len)) < 0) {
+		swaylock_log_errno(LOG_ERROR, "Failed to write message len");
+	}
+
+	do {
+		ssize_t amt = write(comm[2][1], &buf[offs], len - offs);
+		if (amt < 0) {
+			swaylock_log_errno(LOG_ERROR, "Failed to write message buffer");
+		}
+		offs += amt;
+	} while (offs < len);
+
+	result = true;
+	return result;
+}
+
+int get_comm_message_fd(void) {
+	return comm[2][0];
 }

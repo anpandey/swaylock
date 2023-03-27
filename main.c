@@ -1082,6 +1082,15 @@ static void term_in(int fd, short mask, void *data) {
 	state.run_display = false;
 }
 
+static void msg_in(int fd, short mask, void *data) {
+	// TODO alloc properly and error handling
+	static char msg_buf[512];
+	ssize_t size = read_comm_message(msg_buf);
+	if (size > 0) {
+		swaylock_log(LOG_ERROR, "got message: %s", msg_buf);
+	}
+}
+
 // Check for --debug 'early' we also apply the correct loglevel
 // to the forked child, without having to first proces all of the
 // configuration (including from file) before forking and (in the
@@ -1264,6 +1273,8 @@ int main(int argc, char **argv) {
 			display_in, NULL);
 
 	loop_add_fd(state.eventloop, get_comm_reply_fd(), POLLIN, comm_in, NULL);
+
+	loop_add_fd(state.eventloop, get_comm_message_fd(), POLLIN, msg_in, NULL);
 
 	loop_add_fd(state.eventloop, sigusr_fds[0], POLLIN, term_in, NULL);
 	signal(SIGUSR1, do_sigusr);
