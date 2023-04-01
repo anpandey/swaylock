@@ -161,7 +161,7 @@ void render_frame(struct swaylock_surface *surface) {
 	int buffer_width = buffer_diameter;
 	int buffer_height = buffer_diameter;
 
-	if (text || layout_text) {
+	if (text || layout_text || state->msg) {
 		cairo_set_antialias(state->test_cairo, CAIRO_ANTIALIAS_BEST);
 		configure_font_drawing(state->test_cairo, state, surface->subpixel, arc_radius);
 
@@ -183,6 +183,21 @@ void render_frame(struct swaylock_surface *surface) {
 				buffer_width = extents.width + 2 * box_padding;
 			}
 		}
+
+		// TODO figure out what this is actually doing and clean it up
+		// if necessary.
+		if (state->msg) {
+			cairo_text_extents_t extents;
+			cairo_font_extents_t fe;
+			double box_padding = 4.0 * surface->scale;
+			cairo_text_extents(state->test_cairo, state->msg, &extents);
+			cairo_font_extents(state->test_cairo, &fe);
+			buffer_height += fe.height + 2 * box_padding;
+			if (buffer_width < extents.width + 2 * box_padding) {
+				buffer_width = extents.width + 2 * box_padding;
+			}
+		}
+
 	}
 	// Ensure buffer size is multiple of buffer scale - required by protocol
 	buffer_height += surface->scale - (buffer_height % surface->scale);
@@ -347,6 +362,37 @@ void render_frame(struct swaylock_surface *surface) {
 			cairo_new_sub_path(cairo);
 		}
 	}
+
+		if (state->msg) {
+			cairo_text_extents_t extents;
+			cairo_font_extents_t fe;
+			double x, y;
+			double box_padding = 4.0 * surface->scale;
+			cairo_text_extents(cairo, state->msg, &extents);
+			cairo_font_extents(cairo, &fe);
+			// upper left coordinates for box
+			x = (buffer_width / 2) - (extents.width / 2) - box_padding;
+			y = buffer_diameter;
+
+			// background box
+			cairo_rectangle(cairo, x, y,
+				extents.width + 2.0 * box_padding,
+				fe.height + 2.0 * box_padding);
+			cairo_set_source_u32(cairo, state->args.colors.layout_background);
+			cairo_fill_preserve(cairo);
+			// border
+			cairo_set_source_u32(cairo, state->args.colors.layout_border);
+			cairo_stroke(cairo);
+
+			// take font extents and padding into account
+			cairo_move_to(cairo,
+				x - extents.x_bearing + box_padding,
+				y + (fe.height - fe.descent) + box_padding);
+			cairo_set_source_u32(cairo, state->args.colors.layout_text);
+			cairo_show_text(cairo, state->msg);
+			cairo_new_sub_path(cairo);
+		}
+
 
 	// Send Wayland requests
 	wl_subsurface_set_position(surface->subsurface, subsurf_xpos, subsurf_ypos);

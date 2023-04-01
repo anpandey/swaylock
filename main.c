@@ -1088,6 +1088,8 @@ static void msg_in(int fd, short mask, void *data) {
 	ssize_t size = read_comm_message(msg_buf);
 	if (size > 0) {
 		swaylock_log(LOG_ERROR, "got message: %s", msg_buf);
+		state.msg = msg_buf;
+		damage_state(&state);
 	}
 }
 
