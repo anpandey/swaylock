@@ -49,6 +49,7 @@ static void append_ch(struct swaylock_password *pw, uint32_t codepoint) {
 static void clear_indicator(void *data) {
 	struct swaylock_state *state = data;
 	state->clear_indicator_timer = NULL;
+	state->msg = NULL;
 	state->auth_state = AUTH_STATE_IDLE;
 	damage_state(state);
 }
